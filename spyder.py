@@ -208,7 +208,8 @@ def gen_shp(fn,gdf_t):
 
     return buf
 
-fn = 'shp_schemes/'+road_num[0]+'_'+scheme_name+'_'+("%.0f" % area)+'m2'
+#fn = 'shp_schemes/'+road_num[0]+'_'+scheme_name+'_'+("%.0f" % area)+'m2'
+fn = '/tmp/'+road_num[0]+'_'+scheme_name+'_'+("%.0f" % area)+'m2'
 shp_output = gen_shp(fn,gdfx)
 
 
