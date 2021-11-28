@@ -215,5 +215,5 @@ shp_output = gen_shp(fn,gdfx)
 
 st.sidebar.download_button(label='Download Scheme',
                                 data=shp_output,
-                                file_name=fn,
+                                file_name=fn[5:],
                                 mime="application/zip")
