@@ -50,11 +50,11 @@ def load_data(road):
         return transformer.transform(X1, Y1)
 
 
-    df_CL1 = pd.read_pickle('data/CL1.pickle')
-    df_CR1 = pd.read_pickle('data/CR1.pickle') 
+    df_CL1 = pd.read_pickle('data_pub/CL1.pickle')
+    df_CR1 = pd.read_pickle('data_pub/CR1.pickle') 
     
     #pd.read_xls('video_export__isle_of_man__2021_11_30__20_19__utc.xlsx')
-    df_vio = pd.read_pickle('data/df_vio.pickle') 
+    df_vio = pd.read_pickle('data_pub/df_vio.pickle') 
     df_vio['roadcode'], df_vio['roadsection'] = df_vio['SECTION_RF'].str.split('_',1).str
     df_vio['X1'] = df_vio['Latitude']
     df_vio['Y1'] = df_vio['Longitude']
