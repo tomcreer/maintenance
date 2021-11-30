@@ -49,10 +49,19 @@ def load_data(road):
     def transform_coords(X1,Y1):
         return transformer.transform(X1, Y1)
 
-    
-    return gdf
 
-gdf = load_data(road_num[0])
+    df_CL1 = pd.read_pickle('data/CL1.pickle')
+    df_CR1 = pd.read_pickle('data/CR1.pickle') 
+    
+    #pd.read_xls('video_export__isle_of_man__2021_11_30__20_19__utc.xlsx')
+    df_vio = pd.read_pickle('data/df_vio.pickle') 
+    df_vio['roadcode'], df_vio['roadsection'] = df_vio['SECTION_RF'].str.split('_',1).str
+    df_vio['X1'] = df_vio['Latitude']
+    df_vio['Y1'] = df_vio['Longitude']
+    df_vio['Pavement condition'] = pd.to_numeric(df_vio['Pavement condition'])
+    return gdf, df_CL1, df_CR1, df_vio
+
+[gdf, df_CL1, df_CR1, df_vio] = load_data(road_num[0])
 gdf['ch'] = gdf.apply(lambda x: x.name, axis=1)
 
 selected_chainage = st.slider('Section', 0, gdf.shape[0]-1,  \
@@ -89,7 +98,7 @@ mapa = folium.Map(location=new_coords, tiles='https://mt0.google.com/vt/lyrs=s&h
 #https://maps.im/geoserver/iom/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image/png&TRANSPARENT=true&LAYERS=iom:glenvine&TILED=true&WIDTH=256&HEIGHT=256&CRS=EPSG:3857&STYLES=&BBOX=-506318.8753610067,7205871.530500136,-503872.8904558811,7208317.515405262
 
 
-style1 = {'fillColor': '#b5180d', 'color': '#e30f00'}
+style1 = {'fillColor': '#d1d1d1', 'color': '#404040'}
 
 folium.GeoJson(data=gdfx,#.iloc[:1000],
     style_function=lambda x:style1,
@@ -105,8 +114,58 @@ folium.GeoJson(data=gdfx,#.iloc[:1000],
               ).add_to(mapa)
 
 
+feature_group6 = folium.FeatureGroup(name='RCIexTex', show=False)
+feature_group7 = folium.FeatureGroup(name='LSUR', show=False)
+feature_group8 = folium.FeatureGroup(name='Vaisala', show=False)
 
+from branca.colormap import LinearColormap
+
+color_scale = {}
+
+df_CL1_road = df_CL1[df_CL1['roadcode']==road_num[0]]
+df_CR1_road = df_CR1[df_CR1['roadcode']==road_num[0]]
+df_vio_road = df_vio[df_vio['roadcode']==road_num[0]]
+
+lim1 = df_CL1_road[['smoothedmap']].rolling(1).mean().fillna(0).describe().iloc[4,0]
+lim2 = df_CL1_road[['smoothedmap']].rolling(1).mean().fillna(0).describe().iloc[[2,1],0].sum()*5/3
+lim3 = df_CL1_road[['smoothedmap2']].rolling(1).mean().fillna(0).describe().iloc[4,0]
+lim4 = df_CL1_road[['smoothedmap2']].rolling(1).mean().fillna(0).describe().iloc[[2,1],0].sum()*5/3
+
+diff = lim2-lim1
+diff2 = lim4-lim3
+
+color_scale = LinearColormap(['#91db9b','yellow','red',], index=[lim1,lim2-diff/2,lim2-diff/6])       
+color_scale2 = LinearColormap(['#91db9b','yellow','red',], index=[lim3,lim4-diff2/2,lim4-diff2/6])       
+color_scalevio = LinearColormap(['red','#ff5736','yellow','#91db9b',], index=[40,89,96,100])       
+
+def plotDot(point,feature_group,to_plot='smoothedmap',color_scale=color_scale):
+    size = 2
     
+    #x2,y2 = transformer27.transform(point['X1'],point['Y1'])    
+    x2,y2 = point['X1'],point['Y1']
+    
+    folium.Circle( [x2, y2], radius=size
+                     , color=color_scale(float(point[to_plot])) #'RCIexTex'
+                     #, fill_color='black'
+                     , fill=True
+                     ).add_to(feature_group)
+
+if df_CL1_road.shape[0] > 1000:
+    spacing = 3
+if df_CL1_road.shape[0] > 500:
+    spacing = 2
+else:
+    spacing = 1
+df_CL1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group6,'smoothedmap',color_scale), axis = 1)  
+df_CR1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group6,'smoothedmap',color_scale), axis = 1)  
+df_CL1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group7,'smoothedmap2',color_scale2), axis = 1)  
+df_CR1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group7,'smoothedmap2',color_scale2), axis = 1)  
+df_vio_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group8,'Pavement condition',color_scalevio), axis = 1)  
+
+mapa.add_child(feature_group6)
+mapa.add_child(feature_group7)
+mapa.add_child(feature_group8)
+
 #feature_group4 = folium.FeatureGroup(name='Chainages', show=True)
 #def plotChain(point):
 #    #iframe = folium.IFrame(text, width=700, height=450)
@@ -153,7 +212,7 @@ gdfx['hierarchy'] = st.sidebar.text_input('Hierarchy class', gdf.iloc[selected_c
 
 works_required = st.sidebar.selectbox(
      'Works required',
-     ('Overlay', 'Plane & Inlay', 'Microasphalt', 'Surface Dressing', 'HFS', 'Recon - profile', 'Recon - slab stabilisation'))
+     ('Overlay', 'Plane & Inlay', 'Midi Paver', 'Microasphalt', 'Surface Dressing', 'HFS', 'Recon - profile', 'Recon - slab stabilisation', 'Reconstruction'))
 
 
 tm_required = st.sidebar.selectbox(
@@ -180,7 +239,7 @@ gdfx['priority'] = st.sidebar.selectbox(
      ('High', 'Medium/High', 'Medium','Medium/Low','Low'))
 gdfx['status'] = st.sidebar.selectbox(
      'Scheme status',
-     ('Candidate', 'Planned', 'Compete','Deferred'))
+     ('Candidate', 'Planned', 'Completed','Deferred'))
 
 
 cost_matrix_base = {'Overlay':20, 'Plane & Inlay':25, 'Microasphalt':12, 'Surface Dressing':8, 'HFS':30, 'Recon - profile':120, 'Recon - slab stabilisation':150}
@@ -215,5 +274,5 @@ shp_output = gen_shp(fn,gdfx)
 
 st.sidebar.download_button(label='Download Scheme',
                                 data=shp_output,
-                                file_name=fn[5:],
+                                file_name=fn[5:]+'.zip',
                                 mime="application/zip")
