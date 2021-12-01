@@ -67,10 +67,11 @@ gdf['ch'] = gdf.apply(lambda x: x.name, axis=1)
 selected_chainage = st.slider('Section', 0, gdf.shape[0]-1,  \
                               value=(0, gdf.shape[0]-1), step=1)
 st.write('Selected area:', selected_chainage)
-      
-gdfx = gdf.iloc[selected_chainage[0]:selected_chainage[1]+1]#['geometry']
 
+startch = selected_chainage[0]
+endch = selected_chainage[1]
 
+gdfx = gdf.iloc[startch:endch]#['geometry']
 transformer27 = Transformer.from_crs("epsg:27700", "epsg:3857")
 
 x1 = gdfx.bounds.minx.min()
@@ -81,13 +82,6 @@ y2 = gdfx.bounds.maxy.max()
 new_coords = transformer.transform((x1+x2)/2,(y1+y2)/2)
 new_coords1 = transformer.transform(x1,y1)
 new_coords2 = transformer.transform(x2,y2)
-
-#new_coords = transformer.transform((coords[0]+coords[2])/2,  (coords[1]+coords[3])/2)
-#def transform_coords(X1,Y1):
-#    return transformer.transform(X1, Y1)
-
-
-
 
 mapa = folium.Map(location=new_coords, tiles='https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}',attr='google',#'http://{s}.tiles.yourtiles.com/{z}/{x}/{y}.png', #tiles='https://manngis.gov.im/LocalViewWeb/ArcGIS/Rest/Services/6e0ea2cc-77ed-4fdd-aa1f-80be2daa7d7e/MapServer/tile/{z}/{y}/{x}',attr="MANNGIS IoM Gov",
                   zoom_start=17, prefer_canvas=True)
@@ -134,8 +128,18 @@ lim4 = df_CL1_road[['smoothedmap2']].rolling(1).mean().fillna(0).describe().iloc
 diff = lim2-lim1
 diff2 = lim4-lim3
 
-color_scale = LinearColormap(['#91db9b','yellow','red',], index=[lim1,lim2-diff/2,lim2-diff/6])       
-color_scale2 = LinearColormap(['#91db9b','yellow','red',], index=[lim3,lim4-diff2/2,lim4-diff2/6])       
+if True in np.isnan([lim1,lim2,diff]):
+    lim1 = 0
+    lim2 = 200
+    diff = 50
+if True in np.isnan([lim3,lim4,diff2]):
+    lim3 = 0
+    lim4 = 0.8
+    diff2 = 0.2
+
+color_scale = LinearColormap(['#91db9b','yellow','red'], index=[lim1,lim2-diff/2,lim2-diff/6])       
+color_scale2 = LinearColormap(['#91db9b','yellow','red'], index=[lim3,lim4-diff2/2,lim4-diff2/6])       
+
 color_scalevio = LinearColormap(['red','#ff5736','yellow','#91db9b',], index=[40,89,96,100])       
 
 def plotDot(point,feature_group,to_plot='smoothedmap',color_scale=color_scale):
@@ -156,41 +160,22 @@ if df_CL1_road.shape[0] > 500:
     spacing = 2
 else:
     spacing = 1
-df_CL1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group6,'smoothedmap',color_scale), axis = 1)  
-df_CR1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group6,'smoothedmap',color_scale), axis = 1)  
-df_CL1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group7,'smoothedmap2',color_scale2), axis = 1)  
-df_CR1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group7,'smoothedmap2',color_scale2), axis = 1)  
-df_vio_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group8,'Pavement condition',color_scalevio), axis = 1)  
+
+
+if df_CL1_road.shape[0]:
+    df_CL1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group6,'smoothedmap',color_scale), axis = 1)  
+    df_CL1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group7,'smoothedmap2',color_scale2), axis = 1)  
+if df_CR1_road.shape[0]:
+    df_CR1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group6,'smoothedmap',color_scale), axis = 1)  
+    df_CR1_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group7,'smoothedmap2',color_scale2), axis = 1)  
+if df_vio_road.shape[0]:
+    df_vio_road.iloc[1::spacing].apply(lambda x: plotDot(x,feature_group8,'Pavement condition',color_scalevio), axis = 1)  
 
 mapa.add_child(feature_group6)
 mapa.add_child(feature_group7)
 mapa.add_child(feature_group8)
 
-#feature_group4 = folium.FeatureGroup(name='Chainages', show=True)
-#def plotChain(point):
-#    #iframe = folium.IFrame(text, width=700, height=450)
-#    #popup = folium.Popup(iframe, max_width=3000)
-#    
-#    x2,y2 = transformer27.transform(point.geometry.centroid.x,point.geometry.centroid.y)    
-#    folium.Marker( [x2, y2], radius=4
-#                     , color='black'
-#                     #, fill_color='#808080'
-#                     #, fill=True
-#                     , icon=folium.DivIcon(html=str("<p style='font-family:verdana;color:#444;font-size:10px;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s</p>" % (str(point.name))))#, point['LABEL'], point['STARTCH'])))
-#                     #, popup=str(point['cumlength'])
-#                     ).add_to(feature_group4)#
-#
-#
-#gdf.iloc[selected_chainage[0]:selected_chainage[1]].apply(lambda x: plotChain(x), axis=1)
 
-#tiles test
-    
-#atlas = folium.raster_layers.WmsTileLayer(url = 'https://maps.im/geoserver/iom/wms?', layers='iom:crosby', name='test', fmt='image/png', attr='test', transparent=True, version='1.3.0')
-
-#atlas.add_to(mapa)
-
-
-#mapa.add_child(feature_group4)
 folium.TileLayer('openstreetmap').add_to(mapa)
 mapa.add_child(folium.map.LayerControl())
 
@@ -198,6 +183,7 @@ mapa.fit_bounds([new_coords1, new_coords2])
 
 
 folium_static(mapa)
+
 
 
 st.write('Selected area:',  "%.0f" % gdfx.geometry.area.sum() + " m2")
@@ -242,7 +228,7 @@ gdfx['status'] = st.sidebar.selectbox(
      ('Candidate', 'Planned', 'Completed','Deferred'))
 
 
-cost_matrix_base = {'Overlay':20, 'Plane & Inlay':25, 'Microasphalt':12, 'Surface Dressing':8, 'HFS':30, 'Recon - profile':120, 'Recon - slab stabilisation':150}
+cost_matrix_base = {'Overlay':20, 'Plane & Inlay':25, 'Microasphalt':12, 'Midi Paver':17, 'Surface Dressing':8, 'HFS':30, 'Recon - profile':120, 'Recon - slab stabilisation':150,'Reconstruction':120}
 cost_matrix_tm = {'Low':1.0, 'Medium':1.2, 'High':1.4,'':1.0}
 cost_matrix_iron = {'Low':1.0, 'Medium':1.1, 'High':1.2,'':1.0}
 cost_matrix_add = {'Patching':1.1,'Drainage':1.2,'Kerbing':1.1,'Footways':1.2,'':1.0}
