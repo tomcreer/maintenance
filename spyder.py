@@ -36,10 +36,31 @@ st.write(
 )
 #with st.echo():
 
-with open('roadslist.pickle','rb') as f:
+@st.cache(allow_output_mutation=True, ttl=3600)
+def load_data_init():
+    df_vio = pd.read_pickle('data_pub/df_vio.pickle') 
+    df_vio['roadcode'], df_vio['roadsection'] = df_vio['SECTION_RF'].str.split('_',1).str
+    df_vio['X1'] = df_vio['Latitude']
+    df_vio['Y1'] = df_vio['Longitude']
+    df_vio['Pavement condition'] = pd.to_numeric(df_vio['Pavement condition'])
+    
+    df_hier = pd.read_pickle('data_pub/df_hier.pickle') 
+    return df_vio, df_hier
+
+[df_vio, df_hier] = load_data_init()
+roadname = st.sidebar.selectbox(
+     'Road name?',
+     (np.insert(df_hier.PROP_NAME.unique(),0,'')))
+
+with open('roadslist.pickle','rb')  as f:
     roads = pickle.load(f)
     f.close()
-road_num = st.sidebar.multiselect('Road number', roads,default='A1')
+
+if roadname != '':
+  default = df_hier[df_hier['PROP_NAME']==roadname].ROAD_NUM.mode()[0]
+  road_num = st.sidebar.multiselect('Road number', roads,default=default)
+else:
+  road_num = st.sidebar.multiselect('Road number', roads,default='A1')
 
 
 @st.cache(allow_output_mutation=True, ttl=3600)
@@ -54,14 +75,14 @@ def load_data(road):
     df_CR1 = pd.read_pickle('data_pub/CR1.pickle') 
     
     #pd.read_xls('video_export__isle_of_man__2021_11_30__20_19__utc.xlsx')
-    df_vio = pd.read_pickle('data_pub/df_vio.pickle') 
-    df_vio['roadcode'], df_vio['roadsection'] = df_vio['SECTION_RF'].str.split('_',1).str
-    df_vio['X1'] = df_vio['Latitude']
-    df_vio['Y1'] = df_vio['Longitude']
-    df_vio['Pavement condition'] = pd.to_numeric(df_vio['Pavement condition'])
-    return gdf, df_CL1, df_CR1, df_vio
+    #df_vio = pd.read_pickle('data_pub/df_vio.pickle') 
+    #df_vio['roadcode'], df_vio['roadsection'] = df_vio['SECTION_RF'].str.split('_',1).str
+    #df_vio['X1'] = df_vio['Latitude']
+    #df_vio['Y1'] = df_vio['Longitude']
+    #df_vio['Pavement condition'] = pd.to_numeric(df_vio['Pavement condition'])
+    return gdf, df_CL1, df_CR1#, df_vio
 
-[gdf, df_CL1, df_CR1, df_vio] = load_data(road_num[0])
+[gdf, df_CL1, df_CR1] = load_data(road_num[0])
 gdf['ch'] = gdf.apply(lambda x: x.name, axis=1)
 
 selected_chainage = st.slider('Section', 0, gdf.shape[0]-1,  \
