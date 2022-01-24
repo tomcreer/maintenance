@@ -74,7 +74,11 @@ with open('roadslist.pickle','rb') as f:
 gdf  = gpd.read_file('data/RoadShape.shp')
 
 #filter Manxmap to just roads & junctions
+#9014003 = roads
+#9014008 = junctions
+#9014007 = footways
 gdf2 = gdf[(gdf.FEATURE_CO == '9014003') | (gdf.FEATURE_CO == '9014008')]
+gdf_f = gdf[gdf.FEATURE_CO == '9014007']
 
 #join all hierarchy lines with same road number
 gdf_hier2 = gdf_hier.dissolve(by='ROAD_NUM', aggfunc='sum')
@@ -92,7 +96,7 @@ gdf_hier3 = gdf_hier3.drop_duplicates(subset='ROAD_NUM', keep="first")
 #loop through for each road
 for y,roadnum in enumerate(loaded_list):
 #for y in range(0,1):
-    roadnum = 'A3'
+    #roadnum = 'A3'
     #where programme crashes
     #if y < 788:
     #    continue
@@ -147,8 +151,12 @@ for y,roadnum in enumerate(loaded_list):
     gdfx.crs = 'epsg:27700'
     
     # Cut these buffered segments against original Manxmap polygon area
-    gdf_A1_segments = gpd.overlay( gdfx,gdf3, how='intersection')
+    ###gdf_A1_segments = gpd.overlay( gdfx,gdf3, how='intersection')
+    gdf_A1_segments = gpd.overlay( gdfx,gdf_f, how='intersection')
     
     #Export to shp
-    gdf_A1_segments.to_file('shp_roads/'+str(roadnum)+'.shp')
+    ###gdf_A1_segments.to_file('shp_roads/'+str(roadnum)+'.shp')
+    if gdf_A1_segments.shape[0]:
+      gdf_A1_segments.to_file('shp_footways/'+str(roadnum)+'.shp')
+    
     print('%s   %i' % (roadnum, y))

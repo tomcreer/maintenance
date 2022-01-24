@@ -12,6 +12,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 #import altair as alt
+import datetime
 
 from streamlit_folium import folium_static
 import folium
@@ -43,11 +44,13 @@ def load_data_init():
     df_vio['X1'] = df_vio['Latitude']
     df_vio['Y1'] = df_vio['Longitude']
     df_vio['Pavement condition'] = pd.to_numeric(df_vio['Pavement condition'])
+    gdf_gaz = gpd.read_file('data_pub/gazetteer.shp')
+
     
     df_hier = pd.read_pickle('data_pub/df_hier.pickle') 
-    return df_vio, df_hier
+    return df_vio, df_hier, gdf_gaz
 
-[df_vio, df_hier] = load_data_init()
+[df_vio, df_hier, gdf_gaz] = load_data_init()
 roadname = st.sidebar.selectbox(
      'Road name?',
      (np.insert(df_hier.PROP_NAME.unique(),0,'')))
@@ -215,12 +218,30 @@ area =  gdfx.geometry.area.sum()
 gdfx['area'] = area
 scheme_name = st.sidebar.text_input('Scheme Name', '')
 gdfx['scheme_name'] = scheme_name
-gdfx['hierarchy'] = st.sidebar.text_input('Hierarchy class', gdf.iloc[selected_chainage[0]].Hier2015)
+hierarchy = st.sidebar.text_input('Hierarchy class', gdf.iloc[selected_chainage[0]].Hier2015)
+hierarchy_domain = {'Access':'A','District':'D','Footpath':'FP','Information':'I',
+                    'Local':'L','Primary':'P','Private':'PRV','Public Right of Way':'PROW','Unsurfaced':'UNS'}
+
+
+gdfx['hierarchy'] = hierarchy_domain[hierarchy]
 
 works_required = st.sidebar.selectbox(
      'Works required',
      ('Overlay', 'Plane & Inlay', 'Midi Paver', 'Microasphalt', 'Surface Dressing', 'HFS', 'Recon - profile', 'Recon - slab stabilisation', 'Reconstruction'))
 
+works_required_domain = {'Overlay':'OVR',
+'Plane & Inlay':'P&I',
+'Midi Paver':'MID',
+'Microasphalt':'MIC',
+'Surface Dressing':'SUR',
+'HFS':'HFS',
+'Recon - profile':'REP',
+'Recon - slab stabilisation':'RES',
+'Reconstruction':'REC'}
+
+highmediumlow_domain = {'High':'H','Medium':'M','Low':'L'}
+priority_domain = {'High':9,'Medium/High':7,'Medium':5,'Medium/Low':3,'Low':1}
+yesno_domain = {'Yes':'Y','No':'N'}
 
 tm_required = st.sidebar.selectbox(
      'Traffic Management difficulty',
@@ -229,24 +250,38 @@ iron_required = st.sidebar.selectbox(
      'Ironwork difficulty',
      ('Low', 'Medium', 'High',''))
 
-advanced_works_required = st.sidebar.multiselect('Advanced/additional works', ['Patching','Drainage','Kerbing','Footways',''],default='')
+adv_work_domain = ['Patching','Drainage','Kerbing','Footways','']
+advanced_works_required = st.sidebar.multiselect('Advanced/additional works', adv_work_domain,default='')
+for adv_work in adv_work_domain:
+    if adv_work != '':
+     if adv_work in advanced_works_required:
+        gdfx[adv_work] = 'Y'
+     else:
+        gdfx[adv_work] = 'N'
 
+gdfx['works_required'] =  works_required_domain[works_required]
 
-gdfx['works_required'] =  works_required
-gdfx['tm_required'] = tm_required
-gdfx['iron_required'] = iron_required
+gdfx['tm_required'] = highmediumlow_domain[tm_required]
+gdfx['iron_required'] = highmediumlow_domain[iron_required]
 gdfx['advanced_works_required'] = str(advanced_works_required)
 
 gdfx['notes'] = st.sidebar.text_area('Notes (e.g. existing construction if known)',value='')
 
 
-gdfx['year'] = st.sidebar.text_input('Planned year', '')
-gdfx['priority'] = st.sidebar.selectbox(
+gdfx['year'] =  st.sidebar.date_input("Planned date",datetime.date(2022, 4, 1))
+
+priority = st.sidebar.selectbox(
      'Priority',
      ('High', 'Medium/High', 'Medium','Medium/Low','Low'))
-gdfx['status'] = st.sidebar.selectbox(
+
+gdfx['priority'] = priority_domain[priority]
+
+status = st.sidebar.selectbox(
      'Scheme status',
      ('Candidate', 'Planned', 'Completed','Deferred'))
+
+status_domain = {'Candidate':'CND', 'Planned':'PLN', 'Completed':'CMP','Deferred':'DEF'}
+gdfx['status'] = status_domain[status]
 
 
 cost_matrix_base = {'Overlay':20, 'Plane & Inlay':25, 'Microasphalt':12, 'Midi Paver':17, 'Surface Dressing':8, 'HFS':30, 'Recon - profile':120, 'Recon - slab stabilisation':150,'Reconstruction':120}
@@ -263,10 +298,51 @@ gdfx['est_cost'] = st.sidebar.number_input('Estimated Cost (£)', round(est_cost
 
 gdfx.crs = 'epsg:27700'
 
+##match USRN
+gdf_gaz2 = gdf_gaz[gdf_gaz['RoadNum'] == road_num[0]]
+gdfx['Type3USRN'] = int(gpd.sjoin(gdf_gaz2, gdfx, op='intersects')['Type3USRN'].mode()[0])
+
+
+gdfx['SchemeRef'] = '22/000x'
+gdfx['DashboardC'] = 1
+gdfx['RoadNo'] = road_num
+
+column_match = {'area':'SHAPE_STAr',
+        'LENGTH':'SHAPE_STLe',
+        'PROP_NAME':'StreetName',
+       'scheme_name':'SchemeName',
+       'hierarchy':'RoadHierar',
+       'works_required':'WorksReq',
+       'tm_required':'TMDiff',
+       'iron_required':'IronworkDi',
+       'notes':'Notes',
+       'year':'SchemeDate',
+       'priority':'Priority', 
+       'status':'Status',
+       'est_cost':'EstCost',
+       'Type3USRN':'USRN'
+                }
+
+gdfx.rename(columns=column_match, inplace=True)
+
+del gdfx['TOID']
+del gdfx['VERSIONDAT']
+del gdfx['CALCULATED']
+del gdfx['index_righ']
+del gdfx['CLASS']
+del gdfx['Hier2015']
+del gdfx['ch']
+del gdfx['advanced_works_required']
+#del gdfx['ROAD_NUM']
+
+import os, fiona
+from slugify import slugify
+
 @st.cache
-def gen_shp(fn,gdf_t):
+def gen_shp(fn,gdf_t,schema):
     buffer = BytesIO()
-    gdf_t.to_file(filename=fn, driver='ESRI Shapefile')
+    gdf_t.to_file(filename=fn, driver='ESRI Shapefile', schema=schema)
+    #gdf_t.to_file(fn+'.gpkg', layer=slugify(scheme_name), driver="GPKG")
     shutil.make_archive(fn, 'zip', root_dir = fn)
     shutil.rmtree(fn)
     with open(fn+'.zip', 'rb') as fh:
@@ -274,12 +350,62 @@ def gen_shp(fn,gdf_t):
 
     return buf
 
+#gdfx['SchemeDate'] = pd.to_datetime(gdf['SchemeDate'], format='%Y')
+
+# schema = {'geometry': 'MultiPolygon', 
+#           'properties': {'FEATURE_CO': 'str', 
+#                                      'SHAPE_STLe': 'float',
+#                                      'StreetName': 'str',
+#                                      'SHAPE_STAr': 'float',
+#                                      'SchemeName': 'str',
+#                                      'RoadHierar': 'str',
+#                                      'Patching': 'str',
+#                                      'Drainage': 'str',
+#                                      'Kerbing': 'str',
+#                                      'Footways': 'str',
+#                                      'WorksReq': 'str',
+#                                      'TMDiff': 'str',
+#                                      'IronworkDi': 'str',
+#                                      'Notes': 'str',
+#                                      'SchemeDate': 'date',
+#                                      'Priority': 'int',
+#                                      'Status': 'str',
+#                                      'EstCost': 'int',
+#                                      'Type3USRN': 'int',
+#                                      'SchemeRef': 'str',
+#                                      'DashboardC': 'int'}}
+
+from collections import OrderedDict
+schema = {'geometry': 'MultiPolygon', 'properties': OrderedDict([('FEATURE_CO', 'str'),
+                                                                 ('ROAD_NUM', 'str'), 
+                                                                 ('SHAPE_STLe', 'float'), 
+                                                                 ('StreetName', 'str'), 
+                                                                 ('SHAPE_STAr', 'float'), 
+                                                                 ('SchemeName', 'str'), 
+                                                                 ('RoadHierar', 'str'), 
+                                                                 ('Patching', 'str'), 
+                                                                 ('Drainage', 'str'), 
+                                                                 ('Kerbing', 'str'), 
+                                                                 ('Footways', 'str'), 
+                                                                 ('WorksReq', 'str'), 
+                                                                 ('TMDiff', 'str'), 
+                                                                 ('IronworkDi', 'str'), 
+                                                                 ('Notes', 'str'), 
+                                                                 ('SchemeDate', 'date'), 
+                                                                 ('Priority', 'int32:4'), 
+                                                                 ('Status', 'str'), 
+                                                                 ('EstCost', 'float'), 
+                                                                 ('USRN', 'str'), 
+                                                                 ('SchemeRef', 'str'), 
+                                                                 ('RoadNo','str'),
+                                                                 ('DashboardC', 'int32:4')])}
+
 #fn = 'shp_schemes/'+road_num[0]+'_'+scheme_name+'_'+("%.0f" % area)+'m2'
 fn = '/tmp/'+road_num[0]+'_'+scheme_name+'_'+("%.0f" % area)+'m2'
-shp_output = gen_shp(fn,gdfx)
+shp_output = gen_shp(fn,gdfx, schema)
 
 
 st.sidebar.download_button(label='Download Scheme',
                                 data=shp_output,
-                                file_name=fn[5:]+'.zip',
-                                mime="application/zip")
+                                file_name=fn[5:]+'.zip',#'gkpg',
+                                mime="application/zip")#"geopackage+sqlite3")
