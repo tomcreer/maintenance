@@ -1,3 +1,3 @@
-spatialindex
+libspatialindex-c6
 libgdal-dev
 
