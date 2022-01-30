@@ -338,9 +338,16 @@ del gdfx['advanced_works_required']
 import os, fiona
 from slugify import slugify
 
+from shapely.geometry.polygon import Polygon
+from shapely.geometry.multipolygon import MultiPolygon
+
+
+
 @st.cache
 def gen_shp(fn,gdf_t,schema):
     buffer = BytesIO()
+    gdf_t["geometry"] = [MultiPolygon([feature]) if type(feature) == Polygon \
+    else feature for feature in gdf_t["geometry"]]
     gdf_t.to_file(filename=fn, driver='ESRI Shapefile', schema=schema)
     #gdf_t.to_file(fn+'.gpkg', layer=slugify(scheme_name), driver="GPKG")
     shutil.make_archive(fn, 'zip', root_dir = fn)
